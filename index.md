@@ -2,11 +2,12 @@ Premier League 2001/02 - 2021/22
 ================
 
 ``` r
-library(dplyr)
-library(ggplot2)
-library(stringr)
-library(purrr)
+library(tidyverse)
 library(rvest)
+```
+
+``` r
+theme_set(theme_bw())
 ```
 
 ``` r
@@ -58,7 +59,11 @@ scrap_season_table <- function(url) {
   read_html(url) %>% 
     html_node("table") %>% 
     html_table() %>% 
-    as.data.frame()
+    as.data.frame() %>% 
+    mutate(Attendance = 
+             Attendance %>% 
+             str_replace(",", "") %>% 
+             as.integer())
 }
 
 seasons_df <- 
@@ -85,3 +90,65 @@ seasons_df %>%
     ##  9 2013-2014 <df [20 × 15]>
     ## 10 2012-2013 <df [20 × 15]>
     ## # … with 11 more rows
+
+``` r
+unnest_df <-
+  seasons_df %>% 
+  select(season, data) %>% 
+  unnest(data)
+```
+
+``` r
+unnest_df %>% 
+  filter(Rk == 1) %>% 
+  count(Squad,
+        sort = TRUE,
+        name = "titles")
+```
+
+    ## # A tibble: 6 × 2
+    ##   Squad           titles
+    ##   <chr>            <int>
+    ## 1 Manchester City      6
+    ## 2 Manchester Utd       6
+    ## 3 Chelsea              5
+    ## 4 Arsenal              2
+    ## 5 Leicester City       1
+    ## 6 Liverpool            1
+
+``` r
+unnest_df %>% 
+  group_by(Squad) %>% 
+  summarise(titles = sum(Rk == 1),
+            top4 = sum(Rk <= 4),
+            relegations = sum(Rk >= 18),
+            seasons = n(),
+            points = sum(Pts)) %>% 
+  arrange(-points)
+```
+
+    ## # A tibble: 42 × 6
+    ##    Squad           titles  top4 relegations seasons points
+    ##    <chr>            <int> <int>       <int>   <int>  <int>
+    ##  1 Manchester Utd       6    16           0      21   1618
+    ##  2 Chelsea              5    17           0      21   1604
+    ##  3 Arsenal              2    15           0      21   1533
+    ##  4 Liverpool            1    13           0      21   1522
+    ##  5 Manchester City      6    12           0      20   1406
+    ##  6 Tottenham            0     7           0      21   1321
+    ##  7 Everton              0     1           0      21   1149
+    ##  8 Newcastle Utd        0     2           2      19    922
+    ##  9 West Ham             0     0           2      18    853
+    ## 10 Aston Villa          0     0           1      18    831
+    ## # … with 32 more rows
+
+``` r
+unnest_df %>% 
+  count(Squad, name = "seasons") %>% 
+  ggplot(aes(fct_reorder(Squad, seasons), seasons)) +
+  geom_point(stat = "identity") +
+  coord_flip() +
+  labs(x = element_blank())
+```
+
+<img src="index_files/figure-gfm/seasons_per_team_plot-1.svg" width="100%" />

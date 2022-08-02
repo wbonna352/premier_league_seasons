@@ -10,17 +10,21 @@ output:
 knitr::opts_chunk$set(
 	echo = TRUE,
 	message = FALSE,
-	warning = FALSE
+	warning = FALSE,
+	dev = "svg",
+	out.width = "100%"
 )
 ```
 
 ```{r libraries}
-library(dplyr)
-library(ggplot2)
-library(stringr)
-library(purrr)
+library(tidyverse)
 library(rvest)
 ```
+
+```{r}
+theme_set(theme_bw())
+```
+
 
 ```{r URL}
 URL <- "https://fbref.com/en/comps/9/history/Premier-League-Seasons"
@@ -56,7 +60,11 @@ scrap_season_table <- function(url) {
   read_html(url) %>% 
     html_node("table") %>% 
     html_table() %>% 
-    as.data.frame()
+    as.data.frame() %>% 
+    mutate(Attendance = 
+             Attendance %>% 
+             str_replace(",", "") %>% 
+             as.integer())
 }
 
 seasons_df <- 
@@ -69,7 +77,38 @@ seasons_df %>%
   select(season, data)
 ```
 
+```{r unnest_df}
+unnest_df <-
+  seasons_df %>% 
+  select(season, data) %>% 
+  unnest(data)
+```
 
+```{r}
+unnest_df %>% 
+  filter(Rk == 1) %>% 
+  count(Squad,
+        sort = TRUE,
+        name = "titles")
+```
 
+```{r}
+unnest_df %>% 
+  group_by(Squad) %>% 
+  summarise(titles = sum(Rk == 1),
+            top4 = sum(Rk <= 4),
+            relegations = sum(Rk >= 18),
+            seasons = n(),
+            points = sum(Pts)) %>% 
+  arrange(-points)
+```
 
+```{r seasons_per_team_plot}
+unnest_df %>% 
+  count(Squad, name = "seasons") %>% 
+  ggplot(aes(fct_reorder(Squad, seasons), seasons)) +
+  geom_point(stat = "identity") +
+  coord_flip() +
+  labs(x = element_blank())
+```
 
