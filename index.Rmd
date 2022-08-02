@@ -1,0 +1,75 @@
+---
+title: "Premier League 2001/02 - 2021/22"
+output:
+  github_document:
+    default
+  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r libraries}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(purrr)
+library(rvest)
+```
+
+```{r URL}
+URL <- "https://fbref.com/en/comps/9/history/Premier-League-Seasons"
+```
+
+```{r scrap seasons urls}
+seasons.scrap <- 
+  read_html(URL) %>% 
+  html_node(xpath = '//table[@id="seasons"]') %>% 
+  html_nodes(xpath = '//th[@data-stat="season"]') %>% 
+  html_nodes("a")
+
+seasons.names <- seasons.scrap %>% html_text()
+seasons.urls <- seasons.scrap %>% html_attr("href")
+seasons.urls <- paste0("https://fbref.com", seasons.urls)
+
+seasons_df <- 
+  tibble(season = seasons.names,
+         url = seasons.urls) %>% 
+  filter(str_sub(season, 1, 4) %>%
+           as.integer() %>%
+           between(2001, 2021))
+```
+
+```{r}
+seasons_df
+```
+
+```{r scrap seasons data}
+scrap_season_table <- function(url) {
+  Sys.sleep(5) # to avoid HTTP error 429
+  
+  read_html(url) %>% 
+    html_node("table") %>% 
+    html_table() %>% 
+    as.data.frame()
+}
+
+seasons_df <- 
+  seasons_df %>% 
+  mutate(data = map(url, scrap_season_table))
+```
+
+```{r}
+seasons_df %>% 
+  select(season, data)
+```
+
+
+
+
+
